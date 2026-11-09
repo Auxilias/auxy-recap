@@ -12,10 +12,13 @@ What it does
   last level, plus a forecast for the next one. Below that: lots of small
   fun stats (distance, jumps, favourite enemy, mounted time, best find,
   where your gold went ...). Everything is saved per character.
+  Extras: an award for the level ("The Sprinter", "Ghost Walker" ...), a small
+  live pace line (time left vs your average) and a one-line share to party/guild.
 
 Commands (/auxyrecap or /recap)
   (empty)   last recap          now      current level so far
   history   all levels          total    sum over all levels
+  share [guild|party|say]  one-line recap to chat
   test      example values      menu     settings
   reset     reset position      debug    counters for troubleshooting
   Right-click the title bar for settings. Drag the title bar to move.
@@ -40,10 +43,13 @@ Was es macht
   letzten Level, dazu eine Prognose fuers naechste. Darunter viele kleine
   Funstats (Strecke, Spruenge, Lieblingsgegner, Zeit auf dem Reittier,
   bester Fund, wohin das Gold ging ...). Alles pro Charakter gespeichert.
+  Dazu: eine Auszeichnung fuers Level ("Der Sprinter", "Geistwanderer" ...), eine
+  kleine Live-Tempo-Zeile (Restzeit gegen deinen Schnitt) und eine Teilen-Zeile fuer Gruppe/Gilde.
 
 Befehle (/auxyrecap oder /recap)
   (leer) letzter Rueckblick      jetzt    Zwischenstand
   verlauf alle Level             gesamt   Summe aller Level
+  teilen [gilde|gruppe|sagen]  Einzeiler in den Chat
   test   Beispielwerte           menue    Einstellungen
   reset  Position zuruecksetzen  debug    Zaehler zur Fehlersuche
   Rechtsklick auf die Titelzeile = Einstellungen, Titelzeile ziehen = verschieben.

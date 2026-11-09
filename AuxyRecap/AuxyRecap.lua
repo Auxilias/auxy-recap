@@ -91,13 +91,36 @@ if GetLocale and GetLocale() ~= "deDE" then
         ["Test mit Beispielwerten"] = "Test with example values",
         ["Fensterposition zurücksetzen"] = "Reset window position",
         ["Position zurückgesetzt."] = "Position reset.",
-        ["/auxyrecap – (leer) letzter Rückblick · jetzt/now Zwischenstand · verlauf/history alle Level · gesamt/total Summe · test · menü/menu · reset · debug. Rechtsklick auf die Titelzeile = Einstellungen."] = "/auxyrecap – (empty) last recap · now current level · history all levels · total sum · test · menu · reset · debug. Right-click the title bar for settings.",
+        ["/auxyrecap – (leer) letzter Rückblick · jetzt/now Zwischenstand · verlauf/history alle Level · gesamt/total Summe · teilen/share [gilde|gruppe|sagen] · test · menü/menu · reset · debug. Rechtsklick auf die Titelzeile = Einstellungen."] = "/auxyrecap – (empty) last recap · now current level · history all levels · total sum · share [guild|party|say] · test · menu · reset · debug. Right-click the title bar for settings.",
         ["Beispiel-Wald"] = "Example Forest",
         ["Beispiel-Wolf"] = "Example Wolf",
         ["Beispiel-Höhle"] = "Example Cave",
         ["Beispiel-Räuber"] = "Example Bandit",
         ["Beispiel-Spinne"] = "Example Spider",
         ["Seit %s: %d Level, %s"] = "Since %s: %d levels, %s",
+        ["Auszeichnung"] = "Award",
+        ["Der Sprinter"] = "The Sprinter",
+        ["Rekordjäger"] = "Record Breaker",
+        ["Der Genießer"] = "The Easy Rider",
+        ["Geistwanderer"] = "Ghost Walker",
+        ["Unsterblich"] = "Immortal",
+        ["Hüpfer"] = "Bunny Hopper",
+        ["Reisender"] = "Globetrotter",
+        ["Schwimmer"] = "Swimmer",
+        ["Kaffeepause"] = "Coffee Break",
+        ["Schlächter"] = "Slayer",
+        ["Goldgräber"] = "Gold Digger",
+        ["Questheld"] = "Quest Hero",
+        ["Entdecker"] = "Explorer",
+        ["Sammler"] = "Collector",
+        ["Level %d · %d %% · noch ~%s"] = "Level %d · %d %% · ~%s to go",
+        [" · Ø %s"] = " · avg %s",
+        ["Level %d · %d %%"] = "Level %d · %d %%",
+        ["Live-Tempo anzeigen (Shift + ziehen = verschieben)"] = "Show live pace (Shift + drag to move)",
+        ["Teilen"] = "Share",
+        ["Level %d in %s · %d Kills · %d Tode · %s"] = "Level %d in %s · %d kills · %d deaths · %s",
+        ["Nichts zum Teilen: keine Gruppe und keine Gilde."] = "Nothing to share to: no group and no guild.",
+        ["Noch kein Rückblick zum Teilen."] = "No recap to share yet.",
     }) do L[de] = en end
 end
 -- ENDE-SPRACHTABELLE
@@ -111,9 +134,9 @@ local lastMoney, lastTick, lastX, lastY, lastInst
 local lastHostile, lastHostileT
 local pendingRec
 local needSeed, seeding = false, false
-local ShowRecap, TryShow, ShowHistory, OpenMenu
+local ShowRecap, TryShow, ShowHistory, OpenMenu, PaceTick
 
-local DEFAULTS = { auto = true, chat = false, screenshot = false, scale = 1 }
+local DEFAULTS = { auto = true, chat = false, screenshot = false, scale = 1, pace = true }
 local WIDTH, HEAD, ROW, FUNPAGE = 320, 24, 15, 8
 local MAXLEVELS = 120
 
@@ -317,6 +340,7 @@ local function Tick()
         local m = UnitXPMax("player")
         if type(m) == "number" and m > 0 then cur.xp = m end
     end
+    if PaceTick then PaceTick() end
 end
 
 -- ---------------------------------------------------------------- Gold
@@ -465,6 +489,59 @@ local function Delta(a, b, lowerBetter)
     return " |cff" .. (good and "66d973" or "f27366") .. "(" .. txt .. ")|r"
 end
 
+local function BaseAvg(r) -- Schnitt der bis zu 3 Level vor r (ohne unvollständige)
+    local sum, n = 0, 0
+    for lv = r.lv - 1, math.max(1, r.lv - 3), -1 do
+        local o = char.levels[lv]
+        if o and not o.partial and (o.sec or 0) >= 60 then sum = sum + o.sec; n = n + 1 end
+    end
+    if n > 0 then return sum / n end
+end
+local function Awards(r) -- Titel fürs Level, höchstens zwei, wichtigste zuerst
+    local a = {}
+    local sec, t = r.sec or 0, r.t or {}
+    if sec < 60 or r.n then return a end
+    local avg = BaseAvg(r)
+    if r.rec == "fast" then a[#a + 1] = L["Rekordjäger"]
+    elseif avg and sec < avg * 0.85 and not r.partial then a[#a + 1] = L["Der Sprinter"] end
+    if (r.deaths or 0) >= 3 or (t.dead or 0) >= sec * 0.1 then a[#a + 1] = L["Geistwanderer"]
+    elseif (r.deaths or 0) == 0 and (r.kills or 0) >= 30 then a[#a + 1] = L["Unsterblich"] end
+    if (r.kills or 0) >= 80 or ((r.kills or 0) >= 30 and r.kills / sec * 3600 >= 200) then a[#a + 1] = L["Schlächter"] end
+    if (r.quests or 0) >= 8 and (r.xpQ or 0) >= ((r.xpK or 0) + (r.xpQ or 0) + (r.xpE or 0)) * 0.6 then a[#a + 1] = L["Questheld"] end
+    if (r.ex or 0) >= 3 then a[#a + 1] = L["Entdecker"] end
+    if (r.jumps or 0) >= 300 then a[#a + 1] = L["Hüpfer"] end
+    if (t.mount or 0) + (t.taxi or 0) >= sec * 0.35 then a[#a + 1] = L["Reisender"] end
+    if (t.swim or 0) >= sec * 0.1 then a[#a + 1] = L["Schwimmer"] end
+    if (t.afk or 0) >= sec * 0.15 then a[#a + 1] = L["Kaffeepause"] end
+    if (r.gain or 0) >= 10000 and (r.gain or 0) >= (r.loss or 0) * 3 then a[#a + 1] = L["Goldgräber"] end
+    if (((r.it or {})[3] or 0) + ((r.it or {})[4] or 0) + ((r.it or {})[5] or 0)) >= 10 then a[#a + 1] = L["Sammler"] end
+    if avg and sec > avg * 1.3 and #a == 0 then a[#a + 1] = L["Der Genießer"] end
+    while #a > 2 do a[#a] = nil end
+    return a
+end
+local function PlainMoney(c) return (Money(c):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+local function ShareLine(r)
+    local sec = r.sec or 0
+    local line = string.format(L["Level %d in %s · %d Kills · %d Tode · %s"], r.lv, Dur(sec), r.kills or 0, r.deaths or 0,
+        (((r.gain or 0) - (r.loss or 0)) >= 0 and "+" or "") .. PlainMoney((r.gain or 0) - (r.loss or 0)))
+    local a = Awards(r)
+    if a[1] then line = line .. " · " .. a[1] end
+    return line
+end
+local function Share(r, where)
+    if not r or not r.lv then msg(L["Noch kein Rückblick zum Teilen."]); return end
+    local chan
+    if where == "gilde" or where == "guild" then chan = "GUILD"
+    elseif where == "gruppe" or where == "party" then chan = (IsInRaid and IsInRaid()) and "RAID" or "PARTY"
+    elseif where == "sagen" or where == "say" then chan = "SAY"
+    else
+        if IsInGroup and IsInGroup() then chan = (IsInRaid and IsInRaid()) and "RAID" or "PARTY"
+        elseif IsInGuild and IsInGuild() then chan = "GUILD" end
+    end
+    if not chan then msg(L["Nichts zum Teilen: keine Gruppe und keine Gilde."]); return end
+    SendChatMessage(ShareLine(r), chan)
+end
+
 local function Snapshot() -- laufendes Level als Rückblick-Tabelle
     Tick()
     local c = {}
@@ -544,6 +621,52 @@ local function Row(f, i)
     return r
 end
 
+-- Live-Tempo: eine Zeile, wie schnell das laufende Level im Vergleich zu deinem Schnitt geht
+local pace
+local function PaceUpdate()
+    if not pace then return end
+    if not db.pace or not cur or not UnitXP or not UnitXPMax then pace:Hide(); return end
+    local mx = UnitXPMax("player")
+    if type(mx) ~= "number" or mx <= 0 then pace:Hide(); return end
+    local frac = UnitXP("player") / mx
+    local pct = math.floor(frac * 100)
+    local text
+    if frac >= 0.03 and cur.sec > 30 then
+        local total = cur.sec / frac
+        text = string.format(L["Level %d · %d %% · noch ~%s"], cur.lv, pct, Dur(total - cur.sec))
+        local avg = Forecast()
+        if avg then
+            local p = (total - avg) / avg * 100
+            local col = p <= 0 and "|cff66d973" or "|cfff27366"
+            text = text .. col .. string.format(L[" · Ø %s"], Dur(avg)) .. " (" .. (p > 0 and "+" or "-") .. Int(math.abs(p)) .. " %)|r"
+        end
+    else
+        text = string.format(L["Level %d · %d %%"], cur.lv, pct)
+    end
+    pace.fs:SetText(text)
+    local shown = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    pace:SetWidth(math.max(120, #shown * 6 + 10))
+    pace:Show()
+end
+PaceTick = PaceUpdate
+local function BuildPace()
+    pace = CreateFrame("Frame", "AuxyRecapPace", UIParent)
+    pace:SetSize(200, 14); pace:SetFrameStrata("LOW")
+    pace:SetMovable(true); pace:SetClampedToScreen(true); pace:EnableMouse(true); pace:RegisterForDrag("LeftButton")
+    pace.fs = pace:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    pace.fs:SetPoint("CENTER"); pace.fs:SetShadowColor(0, 0, 0, 1); pace.fs:SetShadowOffset(1, -1)
+    pace:SetScript("OnDragStart", function(self) if IsShiftKeyDown and IsShiftKeyDown() then self:StartMoving() end end)
+    pace:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        if self.GetPoint then local p, _, rp, x, y = self:GetPoint(); if p then db.pacePoint = { p, rp, x, y } end end
+    end)
+    pace:SetScript("OnMouseUp", function(self, button) if button == "RightButton" and OpenMenu then OpenMenu(self) end end)
+    local pt = db.pacePoint
+    pace:ClearAllPoints()
+    if pt then pace:SetPoint(pt[1], UIParent, pt[2], pt[3], pt[4]) else pace:SetPoint("TOP", UIParent, "TOP", 0, -30) end
+    pace:Hide()
+end
+
 local frameState = {}
 local function Fill(rec, o)
     o = o or {}
@@ -556,6 +679,9 @@ local function Fill(rec, o)
         frame.note = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         frame.note:SetJustifyH("LEFT"); frame.note:SetWidth(WIDTH - 20); frame.note:SetTextColor(0.62, 0.62, 0.62)
         frame.more = Btn(frame, L["Weitere Funstats"], function() frameState.o.page = (frameState.page or 1) + 1; Fill(frameState.rec, frameState.o) end)
+        frame.award = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        frame.award:SetJustifyH("LEFT"); frame.award:SetTextColor(0.4, 0.85, 0.45)
+        frame.share = Btn(frame, L["Teilen"], function() Share(frameState.rec) end)
         frame.hist = Btn(frame, L["Verlauf"], function() ShowHistory() end)
         frame.close = Btn(frame, L["Schließen"], function() frame:Hide() end)
         Place(frame)
@@ -571,6 +697,10 @@ local function Fill(rec, o)
     local pt = PlayedTotal()
     frame.sub:SetText(o.sub or (pt and string.format(L["Spielzeit insgesamt: %s"], Dur(pt)) or ""))
     y = y - 18
+    local aw = (o.live or o.noPrev) and {} or Awards(rec)
+    frame.award:ClearAllPoints(); frame.award:SetPoint("TOPLEFT", 10, y)
+    frame.award:SetText(#aw > 0 and (L["Auszeichnung"] .. ": " .. table.concat(aw, " · ")) or "")
+    if #aw > 0 then y = y - 18 end
     for _, r in ipairs(frame.rows or {}) do r.l:Hide(); r.r:Hide() end
     local n = 0
     local function Line(label, value, vr, vg, vb)
@@ -623,6 +753,8 @@ local function Fill(rec, o)
     frame.more:ClearAllPoints(); frame.more:SetPoint("TOPLEFT", 6, y); frame.more:SetShown(pages > 1)
     frame.close:ClearAllPoints(); frame.close:SetPoint("TOPRIGHT", -6, y)
     frame.hist:ClearAllPoints(); frame.hist:SetPoint("RIGHT", frame.close, "LEFT", -4, 0)
+    frame.share:ClearAllPoints(); frame.share:SetPoint("RIGHT", frame.hist, "LEFT", -4, 0)
+    frame.share:SetShown(not o.live and not o.noPrev)
     y = y - 20
     frame:SetHeight(-y)
     frame:Show()
@@ -756,6 +888,7 @@ local function OnLevelUp(newLevel)
     end
     cur = NewCur(newLevel)
     char.cur = cur
+    PaceUpdate()
     if db.chat then ChatLine(old) end
     if db.auto then pendingRec = old; C_Timer.After(2, TryShow) end
 end
@@ -882,17 +1015,20 @@ H.PLAYER_LOGIN = function()
     lootPats = PatList({ "LOOT_ITEM_SELF_MULTIPLE", "LOOT_ITEM_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE", "LOOT_ITEM_PUSHED_SELF" })
     explorePats = PatList({ "ERR_ZONE_EXPLORED_XP" })
     lastTick = GetTime()
+    BuildPace(); PaceUpdate()
     C_Timer.NewTicker(3, Tick)
     if JumpOrAscendStart then hooksecurefunc("JumpOrAscendStart", function() if cur then cur.jumps = cur.jumps + 1 end end) end
     if RepairAllItems then hooksecurefunc("RepairAllItems", function() repairUntil = GetTime() + 3 end) end
     SeedPlayed()
 end
 H.PLAYER_LOGOUT = function() Tick() end
+H.PLAYER_XP_UPDATE = function() PaceUpdate() end
 
 -- ---------------------------------------------------------------- Menü und Befehle
 local function FillMenu(root)
     root:CreateCheckbox(L["Automatisch nach dem Level-Up zeigen"], function() return db.auto end, function() db.auto = not db.auto end)
     root:CreateCheckbox(L["Kurze Zeile im Chat"], function() return db.chat end, function() db.chat = not db.chat end)
+    root:CreateCheckbox(L["Live-Tempo anzeigen (Shift + ziehen = verschieben)"], function() return db.pace end, function() db.pace = not db.pace; PaceUpdate() end)
     root:CreateCheckbox(L["Screenshot beim Level-Up"], function() return db.screenshot end, function() db.screenshot = not db.screenshot end)
     local sz = root:CreateButton(L["Größe"])
     for _, v in ipairs({ 0.8, 1, 1.2, 1.5 }) do
@@ -950,6 +1086,8 @@ SlashCmdList.AUXYRECAP = function(arg)
         if t.n == 0 then msg(L["Noch kein Level aufgezeichnet. Der erste Rückblick kommt beim nächsten Level-Up; /recap jetzt zeigt den Zwischenstand."]); return end
         ShowRecap(t, { title = string.format(L["Gesamt (Level %d–%d)"], t.lo or 0, t.lv or 0), noPrev = true,
             sub = string.format(L["Seit %s: %d Level, %s"], date and date("%d.%m.%Y", char.first or 0) or "", t.n, Dur(t.sec or 0)) })
+    elseif arg:match("^teilen") or arg:match("^share") then
+        Share(frameState.rec and frameState.rec.lv and not frameState.o.live and frameState.rec or Sorted()[1], arg:match("^%a+%s+(%a+)"))
     elseif arg == "test" then
         ShowRecap(TestRecord(), { noPrev = true })
     elseif arg == "menü" or arg == "menu" or arg == "optionen" then
@@ -965,7 +1103,7 @@ SlashCmdList.AUXYRECAP = function(arg)
             .. ", nicht erkannte XP-Meldungen: " .. #(db.unmatched or {}))
         for _, t in ipairs(db.unmatched or {}) do msg("  " .. t) end
     else
-        msg(L["/auxyrecap – (leer) letzter Rückblick · jetzt/now Zwischenstand · verlauf/history alle Level · gesamt/total Summe · test · menü/menu · reset · debug. Rechtsklick auf die Titelzeile = Einstellungen."])
+        msg(L["/auxyrecap – (leer) letzter Rückblick · jetzt/now Zwischenstand · verlauf/history alle Level · gesamt/total Summe · teilen/share [gilde|gruppe|sagen] · test · menü/menu · reset · debug. Rechtsklick auf die Titelzeile = Einstellungen."])
     end
 end
 

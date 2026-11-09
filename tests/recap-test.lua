@@ -53,6 +53,11 @@ local function setup(loc)
     UnitClass = function() return "Warrior", "WARRIOR" end
     UnitLevel = function() return 10 end
     UnitXPMax = function() return 4000 end
+    UnitXP = function() return 1000 end
+    sent = {}
+    SendChatMessage = function(t, ch) sent[#sent + 1] = { t, ch } end
+    IsInGroup = function() return false end; IsInGuild = function() return false end; IsInRaid = function() return false end
+    IsShiftKeyDown = function() return false end
     UnitPosition = function() return pos[1], pos[2], 0, 1 end
     GetRealZoneText = function() return "Example Forest" end
     IsMounted = function() return false end
@@ -210,6 +215,23 @@ for _, loc in ipairs({ "deDE", "enUS" }) do
     check(loc .. ": Weitere Funstats blättert", AuxyRecapFrame.head.text:find("2/", 1, true))
     SlashCmdList.AUXYRECAP("debug"); SlashCmdList.AUXYRECAP("reset"); SlashCmdList.AUXYRECAP("hilfe")
     SlashCmdList.AUXYRECAP("menü")
+
+    -- Live-Tempo, Auszeichnungen, Teilen
+    advance(45)
+    check(loc .. ": Live-Tempo-Zeile sichtbar", AuxyRecapPace and AuxyRecapPace.shown and AuxyRecapPace.fs.text:find("%%"))
+    check(loc .. ": Live-Tempo mit Prognose (noch ~)", AuxyRecapPace.fs.text:find(DE and "noch" or "to go", 1, true))
+    db.pace = false; advance(3); check(loc .. ": Live-Tempo abschaltbar", AuxyRecapPace.shown == false); db.pace = true
+    playLevel(16, 2, 3)
+    check(loc .. ": Auszeichnung Geistwanderer", AuxyRecapFrame.award.text:find(DE and "Geistwanderer" or "Ghost Walker", 1, true))
+    check(loc .. ": Teilen-Knopf im Rückblick sichtbar", AuxyRecapFrame.share.shown == true)
+    SlashCmdList.AUXYRECAP("teilen")
+    check(loc .. ": ohne Gruppe/Gilde nichts gesendet", #sent == 0)
+    IsInGroup = function() return true end
+    SlashCmdList.AUXYRECAP("teilen")
+    check(loc .. ": Teilen in die Gruppe, Text ohne Farbcodes", sent[1] and sent[1][2] == "PARTY" and sent[1][1]:find("^Level %d+ in") and not sent[1][1]:find("|c", 1, true))
+    SlashCmdList.AUXYRECAP("share guild")
+    check(loc .. ": Teilen mit Ziel Gilde", sent[2] and sent[2][2] == "GUILD")
+    IsInGroup = function() return false end
 
     -- Einstellungen
     db.auto = false; AuxyRecapFrame:Hide()

@@ -4,6 +4,7 @@
 ## Notes-deDE: Rückblick nach jedem Level-Up: Dauer, XP pro Stunde, Kills, Quests, Tode, Gold rein und raus, dazu viele kleine Funstats (Strecke, Sprünge, Lieblingsgegner, Zeit auf dem Reittier ...). Vergleicht mit deinem letzten Level und schätzt das nächste. Deutsch bei deutschem Client, sonst Englisch. Befehl: /auxyrecap (/recap)
 ## Author: Auxilias
 ## Version: 1.0.1
+## X-Curse-Project-ID: 1794866
 ## IconTexture: Interface\Icons\Spell_Holy_PrayerOfSpirit
 ## SavedVariables: AuxyRecapDB
 

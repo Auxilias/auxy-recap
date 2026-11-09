@@ -141,6 +141,8 @@ local WIDTH, HEAD, ROW, FUNPAGE = 320, 24, 15, 8
 local MAXLEVELS = 120
 
 local function secret(v) return issecretvalue ~= nil and issecretvalue(v) end
+-- Wahrheitswerte der Spiel-API können „geheim“ sein (Midnight): dann nicht auswerten, sonst Taint-Fehler
+local function flag(v) if secret(v) then return false end return v and true or false end
 local function msg(t) print("|cffffd100Auxy Recap:|r " .. t) end
 local function Add(t, k, v) t[k] = (t[k] or 0) + (v == nil and 1 or v) end
 
@@ -315,13 +317,13 @@ local function Tick()
     cur.sec = cur.sec + dt
     char.acc = (char.acc or 0) + dt
     local ct = cur.t
-    if UnitIsDeadOrGhost and UnitIsDeadOrGhost("player") then Add(ct, "dead", dt) end
-    if UnitIsAFK and UnitIsAFK("player") then Add(ct, "afk", dt) end
-    if IsMounted and IsMounted() then Add(ct, "mount", dt) end
-    if UnitAffectingCombat and UnitAffectingCombat("player") then Add(ct, "combat", dt) end
-    if UnitOnTaxi and UnitOnTaxi("player") then Add(ct, "taxi", dt) end
-    if IsResting and IsResting() then Add(ct, "rest", dt) end
-    if IsSwimming and IsSwimming() then Add(ct, "swim", dt) end
+    if UnitIsDeadOrGhost and flag(UnitIsDeadOrGhost("player")) then Add(ct, "dead", dt) end
+    if UnitIsAFK and flag(UnitIsAFK("player")) then Add(ct, "afk", dt) end
+    if IsMounted and flag(IsMounted()) then Add(ct, "mount", dt) end
+    if UnitAffectingCombat and flag(UnitAffectingCombat("player")) then Add(ct, "combat", dt) end
+    if UnitOnTaxi and flag(UnitOnTaxi("player")) then Add(ct, "taxi", dt) end
+    if IsResting and flag(IsResting()) then Add(ct, "rest", dt) end
+    if IsSwimming and flag(IsSwimming()) then Add(ct, "swim", dt) end
     local z = GetRealZoneText and GetRealZoneText()
     if type(z) == "string" and z ~= "" and not secret(z) then Add(cur.zones, z, dt) end
     if UnitPosition then
@@ -895,8 +897,8 @@ end
 
 TryShow = function()
     if not pendingRec then return end
-    if (InCombatLockdown and InCombatLockdown()) or (UnitAffectingCombat and UnitAffectingCombat("player"))
-        or (UnitIsDeadOrGhost and UnitIsDeadOrGhost("player")) then return end
+    if (InCombatLockdown and InCombatLockdown()) or (UnitAffectingCombat and flag(UnitAffectingCombat("player")))
+        or (UnitIsDeadOrGhost and flag(UnitIsDeadOrGhost("player"))) then return end
     local r = pendingRec
     pendingRec = nil
     ShowRecap(r)

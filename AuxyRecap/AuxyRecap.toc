@@ -1,0 +1,10 @@
+## Interface: 16001
+## Title: Auxy Recap
+## Notes: Level recap after every level-up: time, XP per hour, kills, quests, deaths, gold in and out, plus lots of small fun stats (distance, jumps, favourite enemy, mounted time ...). Compares with your last level and forecasts the next. German on German clients, English otherwise. Command: /auxyrecap (/recap)
+## Notes-deDE: Rückblick nach jedem Level-Up: Dauer, XP pro Stunde, Kills, Quests, Tode, Gold rein und raus, dazu viele kleine Funstats (Strecke, Sprünge, Lieblingsgegner, Zeit auf dem Reittier ...). Vergleicht mit deinem letzten Level und schätzt das nächste. Deutsch bei deutschem Client, sonst Englisch. Befehl: /auxyrecap (/recap)
+## Author: Auxilias
+## Version: 1.0
+## IconTexture: Interface\Icons\Spell_Holy_PrayerOfSpirit
+## SavedVariables: AuxyRecapDB
+
+AuxyRecap.lua

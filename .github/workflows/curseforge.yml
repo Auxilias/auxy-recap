@@ -11,7 +11,7 @@ on:
         description: "list = Spielversionen auflisten, upload = Release-Zip des neuesten Releases hochladen"
         default: list
 env:
-  CF_PROJECT: ""
+  CF_PROJECT: "1794866"
   # Name der Spielversion bei CurseForge (siehe Lauf "list"); leer = aus der Interface-Nummer der TOC raten
   CF_GAME_VERSION: "1.60.1"
 permissions:

@@ -155,7 +155,9 @@ local needSeed, seeding = false, false
 local ShowRecap, TryShow, ShowHistory, OpenMenu, PaceTick
 
 local DEFAULTS = { auto = true, chat = false, screenshot = false, scale = 1, pace = true }
-local WIDTH, HEAD, ROW, FUNPAGE = 320, 24, 15, 8
+-- Fenster in zwei Spalten (1.0.2: breiter, 20 Funstats je Seite statt 8)
+local WIDTH, HEAD, ROW, FUNPAGE = 620, 24, 15, 20
+local COLW = math.floor((WIDTH - 40) / 2) -- Breite einer Spalte (20 px Abstand dazwischen)
 local MAXLEVELS = 120
 
 local function secret(v) return issecretvalue ~= nil and issecretvalue(v) end
@@ -719,9 +721,9 @@ local function Row(f, i)
     if not r then
         r = {}
         r.l = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        r.l:SetJustifyH("LEFT"); r.l:SetWidth(130); r.l:SetWordWrap(false); r.l:SetTextColor(0.62, 0.62, 0.62)
+        r.l:SetJustifyH("LEFT"); r.l:SetWidth(120); r.l:SetWordWrap(false); r.l:SetTextColor(0.62, 0.62, 0.62)
         r.r = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        r.r:SetJustifyH("RIGHT"); r.r:SetWidth(WIDTH - 20 - 136); r.r:SetWordWrap(false)
+        r.r:SetJustifyH("RIGHT"); r.r:SetWidth(COLW - 124); r.r:SetWordWrap(false)
         f.rows[i] = r
     end
     return r
@@ -809,15 +811,24 @@ local function Fill(rec, o)
     if #aw > 0 then y = y - 18 end
     for _, r in ipairs(frame.rows or {}) do r.l:Hide(); r.r:Hide() end
     local n = 0
-    local function Line(label, value, vr, vg, vb)
-        n = n + 1
-        local r = Row(frame, n)
-        r.l:ClearAllPoints(); r.l:SetPoint("TOPLEFT", 10, y)
-        r.r:ClearAllPoints(); r.r:SetPoint("TOPRIGHT", -10, y)
-        r.l:SetText(label); r.r:SetText(value)
-        r.r:SetTextColor(vr or 1, vg or 1, vb or 1)
-        r.l:Show(); r.r:Show()
-        y = y - ROW
+    -- Zeilen sammeln, dann in zwei Spalten setzen (links von oben nach unten, dann rechts)
+    local block = {}
+    local function Line(label, value, vr, vg, vb) block[#block + 1] = { label, value, vr, vg, vb } end
+    local function Flush()
+        local rows = math.ceil(#block / 2)
+        for i, b in ipairs(block) do
+            n = n + 1
+            local r = Row(frame, n)
+            local col, row = (i <= rows) and 0 or 1, (i <= rows) and (i - 1) or (i - 1 - rows)
+            local x, ry = 10 + col * (COLW + 20), y - row * ROW
+            r.l:ClearAllPoints(); r.l:SetPoint("TOPLEFT", x, ry)
+            r.r:ClearAllPoints(); r.r:SetPoint("TOPLEFT", x + 124, ry)
+            r.l:SetText(b[1]); r.r:SetText(b[2])
+            r.r:SetTextColor(b[3] or 1, b[4] or 1, b[5] or 1)
+            r.l:Show(); r.r:Show()
+        end
+        y = y - rows * ROW
+        block = {}
     end
     local sec = rec.sec or 0
     Line(L["Dauer"], Dur(sec) .. (prev and Delta(sec, prev.sec, true) or ""))
@@ -833,6 +844,7 @@ local function Fill(rec, o)
     Line(L["Gold ausgegeben"], Money(rec.loss or 0), 0.95, 0.45, 0.4)
     local net = (rec.gain or 0) - (rec.loss or 0)
     if net >= 0 then Line(L["Gold netto"], "+" .. Money(net), 0.4, 0.85, 0.45) else Line(L["Gold netto"], Money(net), 0.95, 0.45, 0.4) end
+    Flush()
     y = y - 6
     local fun = FunStats(rec)
     local pages = math.max(1, math.ceil(#fun / FUNPAGE))
@@ -842,6 +854,7 @@ local function Fill(rec, o)
     frame.head:SetText(L["Funstats"] .. (pages > 1 and (" " .. page .. "/" .. pages) or ""))
     y = y - 16
     for i = (page - 1) * FUNPAGE + 1, math.min(#fun, page * FUNPAGE) do Line(fun[i][1], fun[i][2]) end
+    Flush()
     y = y - 4
     local note
     if o.live then

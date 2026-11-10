@@ -210,9 +210,8 @@ for _, loc in ipairs({ "deDE", "enUS" }) do
     SlashCmdList.AUXYRECAP("gesamt"); SlashCmdList.AUXYRECAP("total")
     SlashCmdList.AUXYRECAP("test")
     check(loc .. ": Test-Fenster mit Beispielwerten", plain(texts(AuxyRecapFrame)):find("Example", 1, true) or plain(texts(AuxyRecapFrame)):find("Beispiel", 1, true))
-    local more = AuxyRecapFrame.more
-    more.scripts.OnClick(more)
-    check(loc .. ": Weitere Funstats blättert", AuxyRecapFrame.head.text:find("2/", 1, true))
+    check(loc .. ": alle Funstats auf einer Seite (kein Blättern)", AuxyRecapFrame.more == nil and not AuxyRecapFrame.head.text:find("/", 1, true)
+        and select(2, texts(AuxyRecapFrame):gsub("\n", "")) >= 20)
     SlashCmdList.AUXYRECAP("debug"); SlashCmdList.AUXYRECAP("reset"); SlashCmdList.AUXYRECAP("hilfe")
     SlashCmdList.AUXYRECAP("menü")
 
@@ -333,7 +332,7 @@ check("geheim: nach kurzer Zeit gelesen", kc.fights == 3)
 issecretvalue = nil
 SlashCmdList.AUXYRECAP("now")
 local all = ""
-for i = 1, 6 do all = all .. "\n" .. plain(texts(AuxyRecapFrame)); if AuxyRecapFrame.more.shown and AuxyRecapFrame.more.scripts.OnClick then AuxyRecapFrame.more.scripts.OnClick() end end
+all = plain(texts(AuxyRecapFrame))
 check("Anzeige: Kampfwerte (Kämpfe, Bester Kampf, Stärkster Zauber, Knappster Kampf)", all:find("Fights=3", 1, true) and all:find("Best fight=100 DPS vs Wolf", 1, true)
     and all:find("Strongest spell=Fireball", 1, true) and all:find("Closest call=50 % of your health lost vs Wolf", 1, true))
 C_DamageMeter, Enum, C_Spell = nil, nil, nil

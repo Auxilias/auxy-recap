@@ -41,7 +41,6 @@ if GetLocale and GetLocale() ~= "deDE" then
         ["Gold ausgegeben"] = "Gold spent",
         ["Gold netto"] = "Gold net",
         ["Funstats"] = "Fun stats",
-        ["Weitere Funstats"] = "More fun stats",
         ["Verlauf"] = "History",
         ["Schließen"] = "Close",
         ["Prognose nächstes Level: etwa %s (Schnitt der letzten %d)"] = "Next level: about %s (average of the last %d)",
@@ -155,8 +154,8 @@ local needSeed, seeding = false, false
 local ShowRecap, TryShow, ShowHistory, OpenMenu, PaceTick
 
 local DEFAULTS = { auto = true, chat = false, screenshot = false, scale = 1, pace = true }
--- Fenster in zwei Spalten (1.0.2: breiter, 20 Funstats je Seite statt 8)
-local WIDTH, HEAD, ROW, FUNPAGE = 620, 24, 15, 20
+-- Fenster in zwei Spalten, alle Funstats auf einer Seite (1.0.2: breiter, kein Blättern mehr)
+local WIDTH, HEAD, ROW = 620, 24, 15
 local COLW = math.floor((WIDTH - 40) / 2) -- Breite einer Spalte (20 px Abstand dazwischen)
 local MAXLEVELS = 120
 
@@ -786,7 +785,6 @@ local function Fill(rec, o)
         frame.head:SetTextColor(1, 0.82, 0)
         frame.note = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         frame.note:SetJustifyH("LEFT"); frame.note:SetWidth(WIDTH - 20); frame.note:SetTextColor(0.62, 0.62, 0.62)
-        frame.more = Btn(frame, L["Weitere Funstats"], function() frameState.o.page = (frameState.page or 1) + 1; Fill(frameState.rec, frameState.o) end)
         frame.award = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         frame.award:SetJustifyH("LEFT"); frame.award:SetTextColor(0.4, 0.85, 0.45)
         frame.share = Btn(frame, L["Teilen"], function() Share(frameState.rec) end)
@@ -794,9 +792,7 @@ local function Fill(rec, o)
         frame.close = Btn(frame, L["Schließen"], function() frame:Hide() end)
         Place(frame)
     end
-    if o.page == nil then o.page = 1 end
     frameState.rec, frameState.o = rec, o
-    frameState.page = o.page
     local prev = o.noPrev and nil or char.levels[(rec.lv or 0) - 1]
     if o.live and not prev then local l = Sorted(); prev = l[1] end
     frame.title:SetText(o.title or string.format(L["Level %d geschafft!"], rec.lv))
@@ -847,13 +843,10 @@ local function Fill(rec, o)
     Flush()
     y = y - 6
     local fun = FunStats(rec)
-    local pages = math.max(1, math.ceil(#fun / FUNPAGE))
-    local page = ((frameState.page - 1) % pages) + 1
-    frameState.page = page
     frame.head:ClearAllPoints(); frame.head:SetPoint("TOPLEFT", 10, y)
-    frame.head:SetText(L["Funstats"] .. (pages > 1 and (" " .. page .. "/" .. pages) or ""))
+    frame.head:SetText(L["Funstats"])
     y = y - 16
-    for i = (page - 1) * FUNPAGE + 1, math.min(#fun, page * FUNPAGE) do Line(fun[i][1], fun[i][2]) end
+    for _, x in ipairs(fun) do Line(x[1], x[2]) end
     Flush()
     y = y - 4
     local note
@@ -869,7 +862,6 @@ local function Fill(rec, o)
     frame.note:SetText(note or "")
     if note then y = y - (note:find("\n", 1, true) and 28 or 14) - 4 end
     y = y - 4
-    frame.more:ClearAllPoints(); frame.more:SetPoint("TOPLEFT", 6, y); frame.more:SetShown(pages > 1)
     frame.close:ClearAllPoints(); frame.close:SetPoint("TOPRIGHT", -6, y)
     frame.hist:ClearAllPoints(); frame.hist:SetPoint("RIGHT", frame.close, "LEFT", -4, 0)
     frame.share:ClearAllPoints(); frame.share:SetPoint("RIGHT", frame.hist, "LEFT", -4, 0)

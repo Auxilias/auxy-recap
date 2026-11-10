@@ -296,6 +296,48 @@ AuxyUI_NS.Style = function() return "MODERN" end; rf.scripts.OnShow(rf)
 check("Aussehen: wie die Suite (sonst) -> WoW-Rahmen", rf.wow.shown == true)
 AuxyUI_NS = nil
 
+-- Kampfwerte aus Blizzards Schadensmesser (nach dem Kampf)
+setup("enUS"); load()
+Enum = { DamageMeterType = { DamageDone = 0, HealingDone = 2, DamageTaken = 7 }, DamageMeterSessionType = { Current = 1 } }
+local vals = { [0] = 400, [2] = 30, [7] = 250 }
+UnitGUID = function() return "P1" end
+UnitHealthMax = function() return 500 end
+C_Spell = { GetSpellName = function(id) return id == 133 and "Fireball" or "Frostbolt" end }
+C_DamageMeter = {
+    GetCombatSessionFromType = function(st, ty) return { combatSources = { { sourceGUID = "X", totalAmount = 9999 },
+        { sourceGUID = "P1", totalAmount = vals[ty], amountPerSecond = type(vals[ty]) == "number" and vals[ty] / 10 or vals[ty] } } } end,
+    GetCombatSessionSourceFromType = function() return { combatSpells = { { spellID = 133, totalAmount = 300 }, { spellID = 116, totalAmount = 100 } } } end,
+    GetSessionDurationSeconds = function() return 10 end,
+}
+UnitExists = function() return true end; UnitCanAttack = function() return true end; UnitIsDead = function() return false end
+UnitName = function(u) if u == "target" then return "Wolf" end return "Grimbold" end
+fire("PLAYER_TARGET_CHANGED"); fire("PLAYER_REGEN_DISABLED"); advance(9); fire("PLAYER_REGEN_ENABLED"); advance(3)
+local kc = AuxyRecapDB.chars["Grimbold-Testrealm"].cur
+check("Kampf: gezählt mit Schaden/Erlitten/Heilung", kc.fights == 1 and kc.dmg == 400 and kc.taken == 250 and kc.heal == 30)
+check("Kampf: beste DPS + Gegner", kc.top.dps == 40 and kc.top.dpsMob == "Wolf")
+check("Kampf: knappster Kampf 50 % des Lebens", math.abs(kc.top.close - 50) < 0.01 and kc.top.closeMob == "Wolf")
+check("Kampf: Schaden je Zauber", kc.ds[133] == 300 and kc.ds[116] == 100)
+fire("PLAYER_REGEN_DISABLED"); fire("PLAYER_REGEN_ENABLED"); advance(3)
+check("gleiche Sitzung nicht doppelt gezählt", kc.fights == 1)
+vals = { [0] = 1000, [2] = 0, [7] = 100 }
+fire("PLAYER_REGEN_DISABLED"); fire("PLAYER_REGEN_ENABLED"); advance(3)
+check("zweiter Kampf: Summen + größter Kampf", kc.fights == 2 and kc.dmg == 1400 and kc.top.big == 1000 and kc.top.dps == 100)
+-- geheim direkt nach dem Kampf: später nochmal
+local SECRET = {}
+issecretvalue = function(v) return v == SECRET end
+vals = { [0] = SECRET, [2] = 0, [7] = 0 }
+fire("PLAYER_REGEN_DISABLED"); fire("PLAYER_REGEN_ENABLED"); advance(3)
+check("geheim: noch nicht gezählt", kc.fights == 2)
+vals = { [0] = 50, [2] = 0, [7] = 10 }; advance(3)
+check("geheim: nach kurzer Zeit gelesen", kc.fights == 3)
+issecretvalue = nil
+SlashCmdList.AUXYRECAP("now")
+local all = ""
+for i = 1, 6 do all = all .. "\n" .. plain(texts(AuxyRecapFrame)); if AuxyRecapFrame.more.shown and AuxyRecapFrame.more.scripts.OnClick then AuxyRecapFrame.more.scripts.OnClick() end end
+check("Anzeige: Kampfwerte (Kämpfe, Bester Kampf, Stärkster Zauber, Knappster Kampf)", all:find("Fights=3", 1, true) and all:find("Best fight=100 DPS vs Wolf", 1, true)
+    and all:find("Strongest spell=Fireball", 1, true) and all:find("Closest call=50 % of your health lost vs Wolf", 1, true))
+C_DamageMeter, Enum, C_Spell = nil, nil, nil
+
 -- unbekanntes XP-Format: wird als Kill gezählt und gemerkt
 setup("enUS"); load()
 fire("CHAT_MSG_COMBAT_XP_GAIN", "Totally new format 77")

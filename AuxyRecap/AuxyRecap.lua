@@ -10,6 +10,20 @@ local isDE = true
 if GetLocale and GetLocale() ~= "deDE" then
     isDE = false
     for de, en in pairs({
+        ["Kämpfe"] = "Fights",
+        ["Ø %s je Kampf"] = "avg %s per fight",
+        ["Schaden gesamt"] = "Total damage",
+        [" pro Kampf"] = " per fight",
+        ["Bester Kampf"] = "Best fight",
+        [" gegen "] = " vs ",
+        ["Größter Kampf"] = "Biggest fight",
+        [" Schaden"] = " damage",
+        ["Stärkster Zauber"] = "Strongest spell",
+        [" % des Schadens"] = " % of damage",
+        ["Schaden erlitten"] = "Damage taken",
+        ["Knappster Kampf"] = "Closest call",
+        [" % des Lebens verloren"] = " % of your health lost",
+        ["Heilung"] = "Healing",
         ["Aussehen"] = "Look",
         ["Wie Auxy UI Suite"] = "Like Auxy UI Suite",
         ["WoW-Rahmen (schwarz, Gold)"] = "WoW frame (black, gold)",
@@ -246,7 +260,8 @@ local function NewCur(level)
     return { lv = level, sec = 0, xp = xpmax or 0, xpK = 0, xpQ = 0, xpE = 0, xpR = 0,
         kills = 0, quests = 0, accepted = 0, deaths = 0, ghost = 0, gain = 0, loss = 0, jumps = 0, dist = 0,
         hearth = 0, casts = 0, ex = 0, g = {}, t = {}, it = { 0, 0, 0, 0, 0, 0 },
-        mobs = {}, zones = {}, dz = {}, kl = {}, sp = {}, t0 = time and time() or 0 }
+        mobs = {}, zones = {}, dz = {}, kl = {}, sp = {}, t0 = time and time() or 0,
+        fights = 0, fsec = 0, dmg = 0, taken = 0, heal = 0, ds = {}, top = {} }
 end
 
 -- Voller Name: Mit Vor- und Nachnamen (Regional Unique Names) liefert UnitName beide Teile getrennt.
@@ -294,7 +309,7 @@ local function InitChar()
 end
 
 local function Finish(c)
-    Trim(c.mobs, 8); Trim(c.zones, 6); Trim(c.dz, 4); Trim(c.kl, 4); Trim(c.sp, 6)
+    Trim(c.mobs, 8); Trim(c.zones, 6); Trim(c.dz, 4); Trim(c.kl, 4); Trim(c.sp, 6); if c.ds then Trim(c.ds, 6) end
     c.t1 = time and time() or 0
 end
 
@@ -305,9 +320,18 @@ local function Sorted() -- Level absteigend
     return list
 end
 
+-- Bestwerte (top): je Wert der größte samt Gegner, nicht addieren
+local function MergeTop(into, from)
+    for _, k in ipairs({ "dps", "big", "close" }) do
+        if from[k] and from[k] > (into[k] or 0) then into[k] = from[k]; into[k .. "Mob"] = from[k .. "Mob"] end
+    end
+end
 local function Merge(into, from)
     for k, v in pairs(from) do
-        if type(v) == "number" then
+        if k == "top" and type(v) == "table" then
+            into.top = into.top or {}
+            MergeTop(into.top, v)
+        elseif type(v) == "number" then
             if k ~= "lv" and k ~= "t0" and k ~= "t1" then into[k] = (into[k] or 0) + v end
         elseif type(v) == "table" and k ~= "best" then
             into[k] = into[k] or {}
@@ -496,6 +520,21 @@ local function FunStats(r)
         if n then F(L["Lieblingsfähigkeit"], n .. " (" .. Int(sv) .. "×)") end
     end
     if (r.accepted or 0) > 0 then F(L["Quests angenommen"], Int(r.accepted)) end
+    -- Kampfwerte aus Blizzards Schadensmesser (nach jedem Kampf gelesen)
+    local nf, top = r.fights or 0, r.top or {}
+    local function vs(mob) return mob and (L[" gegen "] .. mob) or "" end
+    if nf > 0 then
+        F(L["Kämpfe"], Int(nf) .. " · " .. string.format(L["Ø %s je Kampf"], Dur((r.fsec or 0) / nf)))
+        if (r.dmg or 0) > 0 then F(L["Schaden gesamt"], Int(r.dmg) .. " · Ø " .. Int(r.dmg / nf) .. L[" pro Kampf"]) end
+        if top.dps then F(L["Bester Kampf"], Int(top.dps) .. " DPS" .. vs(top.dpsMob)) end
+        if top.big then F(L["Größter Kampf"], Int(top.big) .. L[" Schaden"] .. vs(top.bigMob)) end
+        local dk, dv = Top(r.ds)
+        local dn = dk and SpellName(dk)
+        if dn and (r.dmg or 0) > 0 then F(L["Stärkster Zauber"], dn .. " (" .. Int(Pct(dv, r.dmg)) .. L[" % des Schadens"] .. ")") end
+        if (r.taken or 0) > 0 then F(L["Schaden erlitten"], Int(r.taken)) end
+        if top.close then F(L["Knappster Kampf"], Int(top.close) .. L[" % des Lebens verloren"] .. vs(top.closeMob)) end
+        if (r.heal or 0) > 0 then F(L["Heilung"], Int(r.heal)) end
+    end
     return f
 end
 
@@ -1030,7 +1069,75 @@ H.PLAYER_DEAD = function()
 end
 H.PLAYER_UNGHOST = function() if cur then cur.ghost = cur.ghost + 1 end; C_Timer.After(3, TryShow) end
 H.PLAYER_ALIVE = function() C_Timer.After(3, TryShow) end
-H.PLAYER_REGEN_ENABLED = function() if pendingRec then C_Timer.After(2, TryShow) end end
+-- ---------------------------------------------------------------- Kampfwerte (Blizzards Schadensmesser)
+-- Kein Kampflog auf Forever, Krits gibt die API nicht her. Nach jedem Kampf (Werte sind dann nicht mehr
+-- geheim) liest Recap die eigene Zeile der Sitzung „Aktuell“: Schaden, DPS, erlittener Schaden, Heilung,
+-- Schaden je Zauber. „Knappster Kampf“ = erlittener Schaden im Verhältnis zum Höchstleben (das aktuelle
+-- Leben ist auf Forever verborgen).
+local fightStart, fightEnd, fightMob, lastSig
+local function MNum(v) if secret(v) or type(v) ~= "number" then return nil end return v end
+local function MeterSelf(kind)
+    if not (C_DamageMeter and C_DamageMeter.GetCombatSessionFromType and Enum and Enum.DamageMeterType and Enum.DamageMeterSessionType) then return end
+    local st, ty = Enum.DamageMeterSessionType.Current, Enum.DamageMeterType[kind]
+    if st == nil or ty == nil then return end
+    local ok, s = pcall(C_DamageMeter.GetCombatSessionFromType, st, ty)
+    if not ok or type(s) ~= "table" or type(s.combatSources) ~= "table" then return end
+    local me = UnitGUID and UnitGUID("player")
+    for _, src in ipairs(s.combatSources) do
+        local mine = flag(src.isLocalPlayer)
+        if not mine and me and not secret(me) and not secret(src.sourceGUID) and src.sourceGUID == me then mine = true end
+        if mine then return src, st, ty end
+    end
+end
+local function ReadFight(tries)
+    if not cur then return end
+    local src, st, ty = MeterSelf("DamageDone")
+    local dmg = src and MNum(src.totalAmount)
+    if src and dmg == nil then -- noch geheim: etwas später nochmal
+        if (tries or 0) < 3 then C_Timer.After(2, function() ReadFight((tries or 0) + 1) end) end
+        return
+    end
+    dmg = dmg or 0
+    local t = MeterSelf("DamageTaken"); local taken = t and MNum(t.totalAmount) or 0
+    local h = MeterSelf("HealingDone"); local heal = h and MNum(h.totalAmount) or 0
+    if dmg <= 0 and taken <= 0 then return end
+    local sig = dmg .. ":" .. taken .. ":" .. heal
+    if sig == lastSig then return end -- dieselbe Sitzung (Kampf ohne neue Werte)
+    lastSig = sig
+    local dur = (fightStart and fightEnd and fightEnd > fightStart) and (fightEnd - fightStart) or 0
+    if C_DamageMeter.GetSessionDurationSeconds and st ~= nil then
+        local ok, d = pcall(C_DamageMeter.GetSessionDurationSeconds, st)
+        if ok and MNum(d) and d > 0 then dur = d end
+    end
+    cur.fights = (cur.fights or 0) + 1
+    cur.fsec = (cur.fsec or 0) + dur
+    cur.dmg, cur.taken, cur.heal = (cur.dmg or 0) + dmg, (cur.taken or 0) + taken, (cur.heal or 0) + heal
+    cur.top = cur.top or {}; cur.ds = cur.ds or {}
+    local top, mob = cur.top, fightMob
+    local dps = (src and MNum(src.amountPerSecond)) or (dur > 0 and dmg / dur) or nil
+    if dps and dur >= 4 and dps > (top.dps or 0) then top.dps, top.dpsMob = dps, mob end
+    if dmg > (top.big or 0) then top.big, top.bigMob = dmg, mob end
+    local hpMax = MNum(UnitHealthMax and UnitHealthMax("player"))
+    if hpMax and hpMax > 0 and taken > 0 then
+        local pct = taken / hpMax * 100
+        if pct > (top.close or 0) then top.close, top.closeMob = pct, mob end
+    end
+    if src and C_DamageMeter.GetCombatSessionSourceFromType then
+        local ok, d = pcall(C_DamageMeter.GetCombatSessionSourceFromType, st, ty, src.sourceGUID, src.sourceCreatureID)
+        for _, sp in ipairs(ok and type(d) == "table" and type(d.combatSpells) == "table" and d.combatSpells or {}) do
+            local id, amt = MNum(sp.spellID), MNum(sp.totalAmount)
+            if id and amt and amt > 0 then cur.ds[id] = (cur.ds[id] or 0) + amt end
+        end
+        Trim(cur.ds, 12)
+    end
+end
+H.PLAYER_REGEN_DISABLED = function() fightStart = GetTime() end
+H.PLAYER_REGEN_ENABLED = function()
+    fightEnd = GetTime()
+    fightMob = (lastHostile and lastHostileT and GetTime() - lastHostileT < 60) and lastHostile or nil
+    C_Timer.After(1.5, function() ReadFight(0) end)
+    if pendingRec then C_Timer.After(2, TryShow) end
+end
 H.PLAYER_TARGET_CHANGED = function()
     if UnitExists and UnitExists("target") and UnitCanAttack and UnitCanAttack("player", "target") and not UnitIsDead("target") then
         local n = UnitName("target")

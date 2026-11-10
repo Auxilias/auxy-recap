@@ -245,13 +245,35 @@ local function NewCur(level)
         mobs = {}, zones = {}, dz = {}, kl = {}, sp = {}, t0 = time and time() or 0 }
 end
 
+-- Voller Name: Mit Vor- und Nachnamen (Regional Unique Names) liefert UnitName beide Teile getrennt.
+-- Nur der erste Teil reichte nicht – zwei Chars mit gleichem Vornamen landeten im selben Eintrag (1.0.2).
+local function PlayerName()
+    local n, s = UnitName("player")
+    if secret(n) or type(n) ~= "string" then n = "?" end
+    if not secret(s) and type(s) == "string" and s ~= "" then
+        local c = Constants and Constants.CharacterNameSeparatorConsts
+        return n .. ((c and c.CHARACTERNAME_SURNAME_SEPARATOR) or " ") .. s, n
+    end
+    return n, n
+end
+
 local function InitChar()
     db.chars = db.chars or {}
-    local key = (UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "")
+    local realm = (GetRealmName and GetRealmName() or "")
+    local full, first = PlayerName()
+    local key = full .. "-" .. realm
+    local myClass = UnitClass and select(2, UnitClass("player"))
+    -- Umzug vom alten Schlüssel (nur Vorname), wenn die Klasse passt
+    local oldKey = first .. "-" .. realm
+    if not db.chars[key] and oldKey ~= key and db.chars[oldKey] and db.chars[oldKey].class == myClass then
+        db.chars[key] = db.chars[oldKey]
+        db.chars[key].name = full
+        db.chars[oldKey] = nil
+    end
     char = db.chars[key]
     local lvl = UnitLevel and UnitLevel("player") or 1
     if not char then
-        char = { levels = {}, name = UnitName("player"), first = time and time() or 0 }
+        char = { levels = {}, name = full, first = time and time() or 0 }
         if UnitClass then char.class = select(2, UnitClass("player")) end
         db.chars[key] = char
     end

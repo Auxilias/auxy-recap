@@ -264,6 +264,25 @@ UnitLevel = function() return 11 end; fire("PLAYER_LEVEL_UP", 11); advance(3)
 check("Erststart: erstes Level als unvollständig markiert", cc.levels[10].partial == true)
 check("Erststart: Spielzeit insgesamt in der Anzeige", AuxyRecapFrame.sub.text:find("Total play time", 1, true))
 
+-- Vor- und Nachname (Regional Unique Names): zwei Chars mit gleichem Vornamen getrennt, alter Eintrag zieht um
+setup("enUS")
+AuxyRecapDB = { chars = { ["Grimbold-Testrealm"] = { levels = { [10] = { lv = 10 } }, name = "Grimbold", class = "WARRIOR", first = 1 } } }
+UnitName = function() return "Grimbold", "Steinbart" end
+load()
+check("Nachname: eigener Schlüssel", AuxyRecapDB.chars["Grimbold Steinbart-Testrealm"] ~= nil)
+check("Nachname: alter Eintrag (gleiche Klasse) zieht um", AuxyRecapDB.chars["Grimbold Steinbart-Testrealm"].levels[10] ~= nil
+    and AuxyRecapDB.chars["Grimbold-Testrealm"] == nil and AuxyRecapDB.chars["Grimbold Steinbart-Testrealm"].name == "Grimbold Steinbart")
+local saved2 = AuxyRecapDB
+setup("enUS"); AuxyRecapDB = saved2
+saved2.chars["Grimbold-Testrealm"] = { levels = { [33] = { lv = 33 } }, class = "WARRIOR" }
+UnitName = function() return "Grimbold", "Funkenhand" end
+UnitClass = function() return "Mage", "MAGE" end
+load()
+local mage = AuxyRecapDB.chars["Grimbold Funkenhand-Testrealm"]
+check("zweiter Char, andere Klasse: eigener leerer Eintrag", mage ~= nil and next(mage.levels) == nil and mage.class == "MAGE")
+check("zweiter Char: fremder Alt-Eintrag bleibt unberührt", AuxyRecapDB.chars["Grimbold-Testrealm"].levels[33] ~= nil)
+check("Krieger-Eintrag unberührt", AuxyRecapDB.chars["Grimbold Steinbart-Testrealm"].levels[10] ~= nil)
+
 -- unbekanntes XP-Format: wird als Kill gezählt und gemerkt
 setup("enUS"); load()
 fire("CHAT_MSG_COMBAT_XP_GAIN", "Totally new format 77")

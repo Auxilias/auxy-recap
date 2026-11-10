@@ -59,6 +59,9 @@ Verschieben über die goldene Titelzeile, Rechtsklick auf die Titelzeile öffnet
 - Die Oberfläche ist **Deutsch bei deutschem Client, sonst Englisch**. Befehle gibt es deutsch und englisch.
 - Fehler oder Ideen gerne als [Issue](https://github.com/Auxilias/auxy-recap/issues). Bei Lua-Fehlern hilft der Text aus BugSack.
 
+## Weitere Addons
+- **[Auxy Loot](https://github.com/Auxilias/auxy-loot)**: übersichtliches Würfelfenster für Gruppenbeute (wer würfelt was, wer gewinnt).
+
 ## Wie es entstanden ist
 
 Auxy Recap ist ein Hobbyprojekt für meine Gruppe in WoW Forever. Der Code ist größtenteils mit KI geschrieben (Claude von Anthropic). Ideen, Tests im Spiel und die Entscheidung, was rein kommt, kommen von mir.
@@ -114,6 +117,9 @@ Move the window by dragging the golden title bar; right-click the title bar for 
 - If you install the addon mid-level, that first level is incomplete (earlier kills and quests are unknown). The time is read from `/played` and is correct.
 - The interface is **German on German clients and English on all others**. Commands work in German and English.
 - Bugs or ideas are welcome as an [issue](https://github.com/Auxilias/auxy-recap/issues). For Lua errors, the text from BugSack helps.
+
+### More addons
+- **[Auxy Loot](https://github.com/Auxilias/auxy-loot)**: a clear roll window for group loot (who rolls what, who wins).
 
 ### How it was made
 

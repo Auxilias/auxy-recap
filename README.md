@@ -21,7 +21,9 @@ Nach jedem Level-Up zeigt Auxy Recap ein kleines Fenster: wie lange das Level ge
 
 - **Rückblick nach jedem Level-Up:** Dauer, XP pro Stunde, Kills, Quests, Tode, Gold verdient und ausgegeben. Zahlen im Vergleich zum Level davor, in Grün oder Rot. Im Kampf wartet das Fenster, bis der Kampf vorbei ist.
 - **Auszeichnung fürs Level:** „Der Sprinter“, „Unsterblich“, „Geistwanderer“, „Hüpfer“, „Reisender“, „Questheld“ und mehr, aus deinen Zahlen abgeleitet.
-- **Rund 30 Funstats:** Strecke, Sprünge, Lieblingsgegner, Zeit auf dem Reittier, im Flug, schwimmend, AFK oder im Kampf, Ruhe-XP, entdeckte Gebiete, gefährlichste Zone, bester Fund, Gold nach Quelle (Beute, Quests, Händler, Reparatur, Flug, Training), Ruhestein, Lieblingsfähigkeit. „Weitere Funstats“ blättert durch.
+- **Rund 30 Funstats:** Strecke, Sprünge, Lieblingsgegner, Zeit auf dem Reittier, im Flug, schwimmend, AFK oder im Kampf, Ruhe-XP, entdeckte Gebiete, gefährlichste Zone, bester Fund, Gold nach Quelle (Beute, Quests, Händler, Reparatur, Flug, Training), Ruhestein, Lieblingsfähigkeit. Alles auf einer Seite in zwei Spalten.
+- **Kampfwerte** (nach jedem Kampf aus Blizzards Schadensmesser): Kämpfe, Schaden gesamt und je Kampf, bester Kampf (DPS) und größter Kampf mit Gegner, stärkster Zauber, erlittener Schaden, knappster Kampf (Anteil des Lebens), Heilung. Krits gibt die Spiel-API nicht her.
+- **Aussehen:** goldener WoW-Rahmen (Standard), schlicht schwarz oder wie Auxy UI Suite.
 - **Live-Tempo:** eine schmale Zeile zeigt, wie viel vom Level geschafft ist, wie lange es noch dauert und ob du schneller oder langsamer bist als dein Schnitt.
 - **Verlauf und Gesamt:** alle Level eines Charakters als Liste. Klick zeigt den Rückblick des Levels, „Gesamt“ die Summe.
 - **Teilen:** `/recap teilen` schickt einen Einzeiler in Gruppe oder Gilde.
@@ -75,7 +77,9 @@ After every level-up, Auxy Recap shows a small window: how long the level took, 
 
 - **Recap after every level-up:** duration, XP per hour, kills, quests, deaths, gold earned and spent. Numbers are compared with the previous level in green or red. In combat the window waits until the fight is over.
 - **An award for the level:** "The Sprinter", "Immortal", "Ghost Walker", "Bunny Hopper", "Globetrotter", "Quest Hero" and more, derived from your numbers.
-- **About 30 fun stats:** distance, jumps, favourite enemy, time mounted, on flights, swimming, AFK or in combat, rested XP, areas discovered, deadliest zone, best find, gold by source (loot, quests, vendors, repairs, flights, training), hearthstone, favourite ability. "More fun stats" pages through them.
+- **About 30 fun stats:** distance, jumps, favourite enemy, time mounted, on flights, swimming, AFK or in combat, rested XP, areas discovered, deadliest zone, best find, gold by source (loot, quests, vendors, repairs, flights, training), hearthstone, favourite ability. All on one page in two columns.
+- **Combat stats** (after every fight, from Blizzard's damage meter): fights, total damage and per fight, best fight (DPS) and biggest fight with the enemy, strongest spell, damage taken, closest call (share of your health), healing. The game API does not expose crits.
+- **Look:** golden WoW frame (default), plain black, or like Auxy UI Suite.
 - **Live pace:** a slim line shows how far into the level you are, how long it still takes and whether you're faster or slower than your average.
 - **History and total:** all levels of a character as a list. Click shows that level's recap, "Total" the sum.
 - **Share:** `/recap share` sends a one-liner to party or guild.

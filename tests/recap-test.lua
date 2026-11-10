@@ -283,6 +283,19 @@ check("zweiter Char, andere Klasse: eigener leerer Eintrag", mage ~= nil and nex
 check("zweiter Char: fremder Alt-Eintrag bleibt unberührt", AuxyRecapDB.chars["Grimbold-Testrealm"].levels[33] ~= nil)
 check("Krieger-Eintrag unberührt", AuxyRecapDB.chars["Grimbold Steinbart-Testrealm"].levels[10] ~= nil)
 
+-- Aussehen: WoW-Rahmen als Standard, schlicht wählbar, „wie die Suite“ (OLED = schlicht)
+setup("enUS"); load()
+SlashCmdList.AUXYRECAP("test")
+local rf = AuxyRecapFrame
+check("Aussehen: Standard WoW-Rahmen", rf and rf.wow and rf.wow.shown ~= false)
+AuxyRecapDB.look = "SCHLICHT"; rf.scripts.OnShow(rf)
+check("Aussehen: schlicht schwarz -> kein WoW-Rahmen", rf.wow.shown == false)
+AuxyRecapDB.look = nil; AuxyUI_NS = { Style = function() return "OLED" end }; rf.scripts.OnShow(rf)
+check("Aussehen: wie die Suite (OLED) -> schlicht", rf.wow.shown == false)
+AuxyUI_NS.Style = function() return "MODERN" end; rf.scripts.OnShow(rf)
+check("Aussehen: wie die Suite (sonst) -> WoW-Rahmen", rf.wow.shown == true)
+AuxyUI_NS = nil
+
 -- unbekanntes XP-Format: wird als Kill gezählt und gemerkt
 setup("enUS"); load()
 fire("CHAT_MSG_COMBAT_XP_GAIN", "Totally new format 77")

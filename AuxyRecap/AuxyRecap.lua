@@ -10,6 +10,10 @@ local isDE = true
 if GetLocale and GetLocale() ~= "deDE" then
     isDE = false
     for de, en in pairs({
+        ["Aussehen"] = "Look",
+        ["Wie Auxy UI Suite"] = "Like Auxy UI Suite",
+        ["WoW-Rahmen (schwarz, Gold)"] = "WoW frame (black, gold)",
+        ["Schlicht schwarz"] = "Plain black",
         ["Level %d geschafft!"] = "Level %d done!",
         ["Zwischenstand Level %d"] = "Level %d so far",
         ["Gesamt (Level %d–%d)"] = "Total (levels %d–%d)",
@@ -598,14 +602,53 @@ local function Place(f)
     if pt then f:SetPoint(pt[1], UIParent, pt[2], pt[3], pt[4]) else f:SetPoint("CENTER", UIParent, "CENTER", 0, 120) end
     f:SetScale(db.scale or 1)
 end
+-- Aussehen: db.look = "WOW" (goldener WoW-Dialograhmen, schwarz) / "SCHLICHT" (schwarzer Kasten) /
+-- nil = wie Auxy UI Suite, falls installiert (OLED-Stil = schlicht, sonst WoW), ohne Suite WoW-Rahmen.
+local function Look()
+    local l = db and db.look
+    if l == "WOW" or l == "SCHLICHT" then return l end
+    local s = type(_G.AuxyUI_NS) == "table" and type(_G.AuxyUI_NS.Style) == "function" and _G.AuxyUI_NS.Style()
+    if s == "OLED" then return "SCHLICHT" end
+    return "WOW"
+end
+local function ApplyLook(f)
+    if not f then return end
+    if Look() == "WOW" then
+        f:SetBackdrop(nil)
+        if not f.wow then
+            -- Hülle 5 px außen herum, unter dem Inhalt (der breitere Rahmen verdeckt nichts)
+            local c = CreateFrame("Frame", nil, f, "BackdropTemplate")
+            c:SetPoint("TOPLEFT", f, "TOPLEFT", -5, 5); c:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 5, -5)
+            c:SetFrameLevel(math.max(0, (f:GetFrameLevel() or 1) - 1))
+            c:EnableMouse(false)
+            c:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+                edgeSize = 20, insets = { left = 5, right = 5, top = 5, bottom = 5 } })
+            c:SetBackdropColor(0, 0, 0, 0.92)
+            c:SetBackdropBorderColor(1, 0.92, 0.75, 1)
+            local sheen = c:CreateTexture(nil, "BACKGROUND", nil, 1) -- leichter Goldschimmer oben
+            sheen:SetPoint("TOPLEFT", 5, -5); sheen:SetPoint("TOPRIGHT", -5, -5); sheen:SetHeight(HEAD + 4)
+            sheen:SetColorTexture(1, 1, 1, 1)
+            if not (CreateColor and pcall(sheen.SetGradient, sheen, "VERTICAL", CreateColor(1, 0.82, 0, 0), CreateColor(1, 0.82, 0, 0.10))) then
+                sheen:SetColorTexture(1, 0.82, 0, 0.04)
+            end
+            f.wow = c
+        end
+        f.wow:Show()
+    else
+        if f.wow then f.wow:Hide() end
+        f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
+        f:SetBackdropColor(0, 0, 0, 0.88)
+        f:SetBackdropBorderColor(1, 1, 1, 0.12)
+    end
+end
+
 local function MakeWindow(name, w)
     local f = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
     f:SetSize(w, 200)
     f:SetMovable(true); f:EnableMouse(true); f:SetClampedToScreen(true)
     f:SetFrameStrata("DIALOG")
-    f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
-    f:SetBackdropColor(0, 0, 0, 0.88)
-    f:SetBackdropBorderColor(1, 1, 1, 0.12)
+    ApplyLook(f)
+    f:SetScript("OnShow", ApplyLook) -- Suite-Stil kann sich inzwischen geändert haben
     f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     f.title:SetPoint("TOPLEFT", 10, -7)
     f.title:SetTextColor(1, 0.82, 0)
@@ -1060,6 +1103,14 @@ local function FillMenu(root)
             db.scale = v
             if frame then frame:SetScale(v) end
             if hist then hist:SetScale(v) end
+        end)
+    end
+    local lk = root:CreateButton(L["Aussehen"])
+    local looks = { { "WOW", L["WoW-Rahmen (schwarz, Gold)"] }, { "SCHLICHT", L["Schlicht schwarz"] } }
+    if type(_G.AuxyUI_NS) == "table" and _G.AuxyUI_NS.Style then table.insert(looks, 1, { nil, L["Wie Auxy UI Suite"] }) end
+    for _, o in ipairs(looks) do
+        lk:CreateRadio(o[2], function() return db.look == o[1] end, function()
+            db.look = o[1]; ApplyLook(frame); ApplyLook(hist)
         end)
     end
     root:CreateButton(L["Rückblick zeigen (letztes Level)"], function() SlashCmdList.AUXYRECAP("") end)

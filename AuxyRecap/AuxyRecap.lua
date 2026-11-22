@@ -277,9 +277,24 @@ local function PlayerName()
     return n, n
 end
 
+-- Realm: Auf manchen Servern liefert GetRealmName() nach einem Client-Patch "" (Forever, 22.11.2026).
+-- Dann gälte ein neuer leerer Schlüssel ohne Verlauf. Darum letzten Realm merken, sonst aus den Schlüsseln lesen.
+local function Realm()
+    local r = GetRealmName and GetRealmName()
+    if type(r) == "string" and r ~= "" and not secret(r) then db.realm = r; return r end
+    if type(db.realm) == "string" and db.realm ~= "" then return db.realm end
+    local me, found = PlayerName(), nil
+    for k in pairs(db.chars or {}) do
+        local n, rr = k:match("^(.-)%-(.+)$")
+        if rr and (n == me or not found) then found = rr end
+    end
+    if found then db.realm = found; return found end
+    return ""
+end
+
 local function InitChar()
     db.chars = db.chars or {}
-    local realm = (GetRealmName and GetRealmName() or "")
+    local realm = Realm()
     local full, first = PlayerName()
     local key = full .. "-" .. realm
     local myClass = UnitClass and select(2, UnitClass("player"))
@@ -341,6 +356,40 @@ local function Merge(into, from)
     end
     if from.best and (not into.best or from.best.q >= into.best.q) then into.best = from.best end
 end
+-- Zwei Hälften desselben Levels (alter und leerer Realm-Schlüssel) zusammenlegen; old ist die frühere
+local function JoinLevel(old, new, done)
+    local sec = (new.sec or 0) >= (old.sec or 0) and new.sec or ((old.sec or 0) + (new.sec or 0)) -- neue ist meist schon mit /played gesät
+    local xp, t0, partial = math.max(old.xp or 0, new.xp or 0), old.t0, old.partial
+    Merge(old, new)
+    old.sec, old.xp, old.t0, old.partial, old.xpDone, old.rec = sec, xp, t0, partial, new.xpDone, nil
+    if done then local t1 = new.t1; Finish(old); old.t1 = t1 end
+    return old
+end
+local function FixEmptyRealm()
+    if not db.chars then return end
+    local realm = Realm()
+    if realm == "" then return end
+    local full = PlayerName()
+    local empty, key = full .. "-", full .. "-" .. realm
+    local from, into = db.chars[empty], db.chars[key]
+    if not from then return end
+    db.chars[empty] = nil
+    if not into then db.chars[key] = from; return end
+    into.levels = into.levels or {}
+    for lv, r in pairs(from.levels or {}) do
+        if into.cur and into.cur.lv == lv then
+            into.levels[lv] = JoinLevel(into.cur, r, true); into.cur = nil
+        elseif into.levels[lv] then into.levels[lv] = JoinLevel(into.levels[lv], r, true)
+        else into.levels[lv] = r end
+    end
+    local fc = from.cur
+    if fc then
+        if into.cur and into.cur.lv == fc.lv then into.cur = JoinLevel(into.cur, fc)
+        elseif not into.cur or fc.lv > into.cur.lv then into.cur = fc end
+    end
+    if from.total0 then into.total0, into.acc = from.total0, from.acc end
+end
+
 local function Total()
     local sum = { it = {}, g = {}, t = {} }
     local lo, hi
@@ -1189,6 +1238,7 @@ local function SeedPlayed()
 end
 
 H.PLAYER_LOGIN = function()
+    FixEmptyRealm()
     InitChar()
     killPats = PatList({ "COMBATLOG_XPGAIN_EXPLICIT", "COMBATLOG_XPGAIN_FIRSTPERSON", "COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED" })
     lootPats = PatList({ "LOOT_ITEM_SELF_MULTIPLE", "LOOT_ITEM_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE", "LOOT_ITEM_PUSHED_SELF" })

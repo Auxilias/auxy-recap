@@ -282,6 +282,32 @@ check("zweiter Char, andere Klasse: eigener leerer Eintrag", mage ~= nil and nex
 check("zweiter Char: fremder Alt-Eintrag bleibt unberührt", AuxyRecapDB.chars["Grimbold-Testrealm"].levels[33] ~= nil)
 check("Krieger-Eintrag unberührt", AuxyRecapDB.chars["Grimbold Steinbart-Testrealm"].levels[10] ~= nil)
 
+-- Leerer Realm nach Client-Patch: GetRealmName() == "" → Realm aus den Schlüsseln, halbes Level wird zusammengelegt
+setup("enUS")
+local function rec(lv, kills, sec, t0, extra)
+    local r = { lv = lv, kills = kills, sec = sec, xp = 80800, t0 = t0, mobs = { Wolf = kills }, it = { 0, 0, 0, 0, 0, 0 }, g = {}, t = {} }
+    for k, v in pairs(extra or {}) do r[k] = v end
+    return r
+end
+AuxyRecapDB = { chars = {
+    ["Lirael Sternfall-Testrealm"] = { class = "MAGE", name = "Lirael Sternfall", first = 1, total0 = 100, acc = 5,
+        levels = { [37] = rec(37, 90, 4000, 100, { t1 = 400, xpDone = 78000 }) }, cur = rec(38, 118, 5000, 500) },
+    ["Lirael Sternfall-"] = { class = "MAGE", name = "Lirael Sternfall", first = 900, total0 = 200, acc = 1,
+        levels = { [38] = rec(38, 13, 5400, 900, { t1 = 950, xpDone = 80800, partial = true }) }, cur = rec(39, 2, 30, 950) },
+} }
+GetRealmName = function() return "" end
+UnitName = function() return "Lirael", "Sternfall" end
+UnitClass = function() return "Mage", "MAGE" end
+UnitLevel = function() return 39 end
+load()
+local lc = AuxyRecapDB.chars["Lirael Sternfall-Testrealm"]
+local l38 = lc and lc.levels[38]
+check("leerer Realm: leerer Schlüssel weg, Realm gemerkt", AuxyRecapDB.chars["Lirael Sternfall-"] == nil and AuxyRecapDB.realm == "Testrealm")
+check("leerer Realm: Level 38 aus beiden Hälften", l38 and l38.kills == 131 and l38.mobs.Wolf == 131 and l38.sec == 5400
+    and l38.xp == 80800 and l38.t0 == 500 and l38.t1 == 950 and not l38.partial and l38.xpDone == 80800)
+check("leerer Realm: Level 39 läuft weiter, Level 37 unberührt", lc.cur.lv == 39 and lc.cur.kills == 2 and lc.levels[37].kills == 90)
+check("leerer Realm: Spielzeit vom neueren Eintrag", lc.total0 == 200)
+
 -- Aussehen: WoW-Rahmen als Standard, schlicht wählbar, „wie die Suite“ (OLED = schlicht)
 setup("enUS"); load()
 SlashCmdList.AUXYRECAP("test")
